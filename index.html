@@ -13,6 +13,7 @@
 </head>
 <body>
 <div id="map"></div>
+<div id="grain"></div>
 
 <!-- decorative chart compass rose -->
 <svg id="compass" viewBox="0 0 200 200" aria-hidden="true">
@@ -39,12 +40,13 @@
 
 <header id="title">
   <h1>Harbor Motion</h1>
-  <p class="sub">A year of boat traffic across New York City — all five boroughs — on the working
-  nautical chart. And who's out on the water right now.</p>
+  <p class="sub">Boat traffic across New York City — all five boroughs — sketched in colored pencil
+  on the working NOAA chart. A whole year, a single day's crossings, or who's on the water right now.</p>
 </header>
 
 <div id="modes">
-  <button id="mode-year" class="active">Year replay</button>
+  <button id="mode-year" class="active">Year</button>
+  <button id="mode-day">A day</button>
   <button id="mode-live" class="live">● Live</button>
 </div>
 
@@ -58,6 +60,7 @@
     <div id="clock">
       <span id="date" class="mono">—</span>
       <span id="season"></span>
+      <span id="daytime" class="mono" style="display:none"></span>
       <span id="live-count" style="display:none"></span>
     </div>
     <button id="play" title="Play / pause">❚❚</button>

@@ -15,6 +15,17 @@ html, body { height: 100%; background: #dfe7ea; color: var(--ink);
 #map { position: absolute; inset: 0; background: #cfe0e6; }
 .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
 
+/* Paper grain + warm tooth over the whole chart, so it (and the pencil paths
+   drawn into it) read as pigment on printed paper rather than a flat screen. */
+#grain {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background-image:
+    radial-gradient(120% 90% at 50% 40%, rgba(255,247,225,0) 55%, rgba(120,92,40,0.16) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: cover, 200px 200px;
+  mix-blend-mode: multiply; opacity: 0.42;
+}
+
 /* ---- Parchment panel base (shared) ---- */
 .paper {
   background:
@@ -55,6 +66,7 @@ html, body { height: 100%; background: #dfe7ea; color: var(--ink);
   font-variant: small-caps; transition: all 0.16s;
 }
 #modes button.active { background: var(--ink); color: var(--paper-2); }
+#modes button.day.active { background: var(--magenta); color: #fff; }
 #modes button.live.active { background: var(--chan-red); color: #fff; }
 
 /* ---- Bottom control panel ---- */
@@ -79,6 +91,7 @@ html, body { height: 100%; background: #dfe7ea; color: var(--ink);
 #clock #date { font-size: 25px; font-weight: 600; letter-spacing: 1px; color: var(--ink); }
 #clock #season { font-size: 12px; color: var(--magenta); text-transform: uppercase;
   letter-spacing: 2.5px; font-family: "IBM Plex Mono", monospace; }
+#clock #daytime { font-size: 18px; color: var(--magenta); font-weight: 500; }
 #clock #live-count { font-size: 14px; color: var(--chan-red); font-style: italic; }
 
 #play {
@@ -99,8 +112,7 @@ html, body { height: 100%; background: #dfe7ea; color: var(--ink);
   background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink);
   padding: 5px 11px 5px 8px; font-size: 12.5px; transition: all 0.15s;
 }
-.chip .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(20,48,74,0.4);
-  box-shadow: 0 0 7px currentColor; }
+.chip .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(20,48,74,0.45); }
 .chip.off { opacity: 0.4; background: transparent; }
 .chip:hover { box-shadow: inset 0 0 0 1px var(--magenta); }
 
