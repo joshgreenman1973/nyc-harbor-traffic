@@ -62,12 +62,13 @@ trails and live dots):</p>
 <ul>
   <li>Each national daily file (~8 million rows) is streamed and filtered to the harbor box
     (~230,000 rows/day) — the raw file is never stored.</li>
-  <li>For the animation, each vessel's track is downsampled: <strong>one point per ~8 minutes</strong>
+  <li>For the animation, each vessel's track is downsampled: <strong>one point per ~4 minutes</strong>
     while moving, and heavily decimated (~1 point/hour) when anchored or moored below 1 knot,
     since the story is movement, not idling.</li>
-  <li>A track is split into separate segments whenever there's a gap longer than 25 minutes, so the
-    animation never draws a straight "teleport" line across the harbor. Segments that never move
-    more than ~200 m are dropped.</li>
+  <li>A track is split into separate segments whenever there's a time gap longer than 18 minutes
+    <em>or</em> a position jump larger than ~3&nbsp;km. This keeps the connecting lines hugging the
+    water instead of drawing straight "teleport" chords across land from missing or bad AIS fixes.
+    Segments that never move more than ~200&nbsp;m are dropped.</li>
   <li>deck.gl's <code>TripsLayer</code> interpolates linearly between sampled points, so motion
     looks continuous even at this spacing.</li>
 </ul>

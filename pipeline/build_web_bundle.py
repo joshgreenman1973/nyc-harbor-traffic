@@ -17,6 +17,7 @@ import os
 import sys
 import glob
 import json
+import math
 
 import pandas as pd
 
@@ -26,13 +27,23 @@ from harbor import CATEGORIES, LON_MIN, LON_MAX, LAT_MIN, LAT_MAX
 DAYS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "days")
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "web")
 
-SAMPLE_MINUTES = 8       # min spacing between kept points for MOVING vessels
+SAMPLE_MINUTES = 4       # min spacing between kept points for MOVING vessels
 IDLE_MINUTES = 60        # spacing for near-stationary vessels (sog < IDLE_SOG)
 IDLE_SOG = 1.0           # knots; below this a vessel is anchored/moored
-GAP_MINUTES = 25         # break a trip into a new segment past this gap
+GAP_MINUTES = 18         # break a trip into a new segment past this time gap
+MAX_STEP_KM = 3.0        # break a trip if two kept points jump farther than this
+                         # (kills bad AIS fixes + long chords that cross land)
 MIN_SEG_POINTS = 2       # drop singleton segments
 MIN_SEG_MOVE = 0.002     # ~200 m; drop segments that never really move
 COORD_DP = 5             # ~1 m precision
+
+
+def _km(a, b):
+    """Approx great-circle distance (km) between [lon,lat] points a and b."""
+    mlat = math.radians((a[1] + b[1]) / 2)
+    dx = (b[0] - a[0]) * 111.320 * math.cos(mlat)
+    dy = (b[1] - a[1]) * 110.574
+    return math.hypot(dx, dy)
 
 # Color per category (used by frontend + legend). Bright on dark basemap.
 COLORS = {
@@ -77,7 +88,11 @@ def build_month(month):
                 last_t = None
             spacing = idle if sog < IDLE_SOG else sample
             if last_t is None or (t - last_t) >= spacing:
-                path.append([round(float(lon), COORD_DP), round(float(lat), COORD_DP)])
+                pt = [round(float(lon), COORD_DP), round(float(lat), COORD_DP)]
+                if path and _km(path[-1], pt) > MAX_STEP_KM:
+                    n_pts += _flush(trips, cat, path, ts)
+                    path, ts = [], []
+                path.append(pt)
                 ts.append(int(t.timestamp()))
                 last_t = t
         n_pts += _flush(trips, cat, path, ts)
