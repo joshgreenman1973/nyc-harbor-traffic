@@ -1,0 +1,7 @@
+name = "nyc-harbor-ais-relay"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Deploy:   cd worker && npx wrangler deploy
+# Set key:  npx wrangler secret put AISSTREAM_KEY   (paste your free aisstream.io key)
+# The key is stored as an encrypted secret -- it never appears in the frontend.

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Harbor Motion — a year of boat traffic across New York City</title>
+<meta name="description" content="Every vessel on New York City's waters — all five boroughs — animated over a real year of AIS data, drawn over the actual NOAA nautical chart, plus a live view of who's on the water right now." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link href="style.css" rel="stylesheet" />
+</head>
+<body>
+<div id="map"></div>
+
+<!-- decorative chart compass rose -->
+<svg id="compass" viewBox="0 0 200 200" aria-hidden="true">
+  <g fill="none" stroke="#b51e7a" stroke-width="1">
+    <circle cx="100" cy="100" r="92"/>
+    <circle cx="100" cy="100" r="74"/>
+    <circle cx="100" cy="100" r="58"/>
+  </g>
+  <g id="ticks" stroke="#b51e7a"></g>
+  <!-- 8-point star -->
+  <g>
+    <polygon points="100,16 110,100 100,108 90,100" fill="#b51e7a"/>
+    <polygon points="100,184 110,100 100,92 90,100" fill="#1b3a5b"/>
+    <polygon points="16,100 100,90 108,100 100,110" fill="#1b3a5b"/>
+    <polygon points="184,100 100,90 92,100 100,110" fill="#1b3a5b"/>
+    <polygon points="40,40 100,96 96,100 100,100" fill="#1b3a5b" opacity="0.55"/>
+    <polygon points="160,40 104,96 100,100 100,100" fill="#1b3a5b" opacity="0.55"/>
+    <polygon points="40,160 96,104 100,100 100,100" fill="#1b3a5b" opacity="0.55"/>
+    <polygon points="160,160 104,104 100,100 100,100" fill="#1b3a5b" opacity="0.55"/>
+  </g>
+  <text x="100" y="12" text-anchor="middle" fill="#b51e7a" font-size="15" font-family="Spectral" font-weight="600">N</text>
+  <circle cx="100" cy="100" r="4" fill="#b51e7a"/>
+</svg>
+
+<header id="title">
+  <h1>Harbor Motion</h1>
+  <p class="sub">A year of boat traffic across New York City — all five boroughs — on the working
+  nautical chart. And who's out on the water right now.</p>
+</header>
+
+<div id="modes">
+  <button id="mode-year" class="active">Year replay</button>
+  <button id="mode-live" class="live">● Live</button>
+</div>
+
+<div id="tooltip"></div>
+<div id="status"><span class="spin"></span><span id="status-text">Charting the harbor…</span></div>
+
+<div id="panel">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="row">
+    <div id="clock">
+      <span id="date" class="mono">—</span>
+      <span id="season"></span>
+      <span id="live-count" style="display:none"></span>
+    </div>
+    <button id="play" title="Play / pause">❚❚</button>
+    <input id="timeline" type="range" min="0" max="1000" value="0" />
+    <select id="speed" title="Playback speed">
+      <option value="1">1 day / s</option>
+      <option value="3" selected>3 days / s</option>
+      <option value="7">7 days / s</option>
+      <option value="14">14 days / s</option>
+    </select>
+  </div>
+  <div class="row">
+    <span class="keylabel">Vessel types</span>
+    <div id="legend"></div>
+  </div>
+</div>
+
+<div id="notice">Not for navigation · Chart: NOAA ENC® · Tracks: AIS</div>
+<a class="method" href="methodology.html">Methodology &amp; data sources →</a>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/deck.gl@9.0.36/dist.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

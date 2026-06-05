@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Harbor Motion — methodology & data sources</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  body { background:#05080f; color:#e8eefc; font-family:"Space Grotesk",system-ui,sans-serif;
+    max-width:760px; margin:0 auto; padding:48px 22px 80px; line-height:1.6; }
+  a { color:#00c8ff; } h1 { font-size:28px; } h2 { font-size:18px; margin-top:34px; color:#00c8ff; }
+  code { font-family:"IBM Plex Mono",monospace; background:rgba(255,255,255,0.07); padding:1px 5px; border-radius:4px; font-size:13px; }
+  table { border-collapse:collapse; width:100%; margin-top:12px; font-size:14px; }
+  td,th { border:1px solid rgba(120,160,210,0.2); padding:7px 10px; text-align:left; }
+  .dim { color:#8da2c4; } .back { display:inline-block; margin-bottom:24px; }
+  li { margin:5px 0; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">← Back to the map</a>
+<h1>Harbor Motion — methodology</h1>
+<p class="dim">How the boat-movement animation around Manhattan is built. Nothing here is a black box.</p>
+
+<h2>What you're looking at</h2>
+<p><strong>Year replay</strong> animates a full real year (2025) of vessel positions in the
+waters around Manhattan, with trails fading behind each boat and color by vessel type.
+<strong>Live</strong> switches to actual real-time positions of vessels in the harbor right now.</p>
+
+<h2>Data sources</h2>
+<ul>
+  <li><strong>Historical:</strong> <a href="https://marinecadastre.gov/accessais/">NOAA Marine Cadastre AIS</a>
+    — daily nationwide AIS (Automatic Identification System) broadcasts, sampled to one position
+    per minute. We use the 2025 daily files (<code>ais-2025-MM-DD.csv.zst</code>).</li>
+  <li><strong>Live:</strong> <a href="https://aisstream.io/">AISStream.io</a> — a free real-time
+    AIS WebSocket feed, subscribed to the harbor bounding box. The API key is held server-side in a
+    Cloudflare Worker and is never exposed in this page.</li>
+  <li><strong>Basemap:</strong> <a href="https://carto.com/">CARTO</a> dark matter; rendering with
+    <a href="https://maplibre.org/">MapLibre GL</a> + <a href="https://deck.gl/">deck.gl</a>.</li>
+</ul>
+
+<h2>Geographic filter</h2>
+<p>Both the historical filter and the live subscription use the same bounding box:
+longitude <code>-74.28</code> to <code>-73.70</code>, latitude <code>40.45</code> to <code>40.92</code>.
+This covers the Upper and Lower Bay, the Narrows, the Hudson and East rivers, the Harlem River,
+Kill Van Kull, Arthur Kill, Newark Bay and the Rockaway approach.</p>
+
+<h2>Vessel types</h2>
+<p>AIS vessel-type codes are collapsed into seven categories (consistent across the legend,
+trails and live dots):</p>
+<table>
+  <tr><th>Category</th><th>AIS codes</th></tr>
+  <tr><td>Ferries / passenger</td><td>60–69 (incl. cruise)</td></tr>
+  <tr><td>Cargo</td><td>70–79</td></tr>
+  <tr><td>Tankers</td><td>80–89</td></tr>
+  <tr><td>Tugs &amp; barges</td><td>31, 32, 52</td></tr>
+  <tr><td>Sailing / pleasure</td><td>36, 37</td></tr>
+  <tr><td>Fishing</td><td>30</td></tr>
+  <tr><td>Other</td><td>pilot (50), law/SAR, undefined</td></tr>
+</table>
+
+<h2>Processing &amp; sampling</h2>
+<ul>
+  <li>Each national daily file (~8 million rows) is streamed and filtered to the harbor box
+    (~230,000 rows/day) — the raw file is never stored.</li>
+  <li>For the animation, each vessel's track is downsampled: <strong>one point per ~8 minutes</strong>
+    while moving, and heavily decimated (~1 point/hour) when anchored or moored below 1 knot,
+    since the story is movement, not idling.</li>
+  <li>A track is split into separate segments whenever there's a gap longer than 25 minutes, so the
+    animation never draws a straight "teleport" line across the harbor. Segments that never move
+    more than ~200 m are dropped.</li>
+  <li>deck.gl's <code>TripsLayer</code> interpolates linearly between sampled points, so motion
+    looks continuous even at this spacing.</li>
+</ul>
+
+<h2>Known limitations</h2>
+<ul>
+  <li>AIS is required on most commercial vessels but not all small craft, so recreational traffic is
+    undercounted (Class B transponders also report less often).</li>
+  <li>The source data is already sampled to 1-minute by NOAA; we downsample further for file size.</li>
+  <li>AIS has coverage gaps and occasional bad GPS fixes; obviously wrong points outside the box are
+    excluded by the filter, but minor noise remains.</li>
+  <li>Vessel type is self-reported and sometimes blank or miscoded (those fall into "Other").</li>
+  <li>Live view shows only vessels currently broadcasting within the box while the feed is connected;
+    it is not an official navigation source.</li>
+</ul>
+
+<p class="dim" style="margin-top:30px">Built with public data. Not for navigation.</p>
+</body>
+</html>
