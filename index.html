@@ -67,14 +67,17 @@
       <span id="live-count" style="display:none"></span>
     </div>
     <button id="play" title="Play / pause">❚❚</button>
-    <input id="timeline" type="range" min="0" max="1000" value="0" />
+    <div id="tl-wrap">
+      <input id="timeline" type="range" min="0" max="1000" value="0" />
+      <div id="tl-ticks"><span>12a</span><span>6a</span><span>noon</span><span>6p</span><span>12a</span></div>
+    </div>
     <select id="speed" title="How long the full day takes to play">
       <option value="120">whole day in 2 min</option>
       <option value="60" selected>whole day in 1 min</option>
       <option value="30">whole day in 30 s</option>
       <option value="15">whole day in 15 s</option>
     </select>
-    <button id="daytoggle" title="Animate the day, or show the whole day at once">Whole day</button>
+    <button id="daytoggle" title="Switch between the animation and a static map of the whole day">▦ Whole&nbsp;day</button>
   </div>
   <div class="row">
     <span class="keylabel">Tap to filter ↓</span>

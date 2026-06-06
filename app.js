@@ -303,9 +303,9 @@ $("speed").onchange = (e) => { dayLoopSec = +e.target.value; };
 $("daytoggle").onclick = () => {
   dayStatic = !dayStatic;
   $("daytoggle").classList.toggle("on", dayStatic);
-  $("daytoggle").textContent = dayStatic ? "Animate" : "Whole day";
+  $("daytoggle").innerHTML = dayStatic ? "▶ Animate" : "▦ Whole&nbsp;day";
   const vis = (el, on) => (el.style.display = on ? "" : "none");
-  vis($("play"), !dayStatic); vis($("timeline"), !dayStatic); vis($("speed"), !dayStatic);
+  vis($("play"), !dayStatic); vis($("tl-wrap"), !dayStatic); vis($("speed"), !dayStatic);
   updateDayClock();
   renderStatic();
 };
@@ -329,7 +329,9 @@ function setMode(m) {
   vis($("daytoggle"), m === "day");
   vis($("speed"), m === "day" && !dayStatic);
   vis($("play"), m === "day" && !dayStatic);
-  vis($("timeline"), m === "day" && !dayStatic);
+  vis($("tl-wrap"), m === "day" && !dayStatic);
+  // soft fade so switching modes isn't an abrupt swap
+  const p = $("panel"); p.style.opacity = "0.35"; setTimeout(() => { p.style.opacity = "1"; }, 170);
   if (ws && m !== "live") { ws.close(); ws = null; }
   updateCounts();
   overlay.setProps({ layers: [] });
