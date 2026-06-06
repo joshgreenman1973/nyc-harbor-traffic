@@ -69,5 +69,39 @@
   "tMin": 1735689600,
   "tMax": 1767225593,
   "totalSegments": 556349,
-  "totalPoints": 4039208
+  "totalPoints": 4039208,
+  "counts": {
+    "passenger": {
+      "vessels": 324,
+      "transits": 39839
+    },
+    "cargo": {
+      "vessels": 1216,
+      "transits": 11054
+    },
+    "tanker": {
+      "vessels": 565,
+      "transits": 5614
+    },
+    "tug": {
+      "vessels": 356,
+      "transits": 49678
+    },
+    "pleasure": {
+      "vessels": 3966,
+      "transits": 46950
+    },
+    "fishing": {
+      "vessels": 197,
+      "transits": 4195
+    },
+    "other": {
+      "vessels": 980,
+      "transits": 26034
+    },
+    "_total": {
+      "vessels": 7600,
+      "transits": 183364
+    }
+  }
 }

@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import math
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -50,14 +51,27 @@ def _flush(trips, cat, path, ts):
     return 0
 
 
+def most_recent_complete():
+    """Latest date D whose full Eastern day is covered (D and D+1 both present)."""
+    import glob as _g
+    days = sorted(os.path.basename(p)[4:14] for p in _g.glob(os.path.join(DAYS_DIR, "ais-*.parquet")))
+    have = set(days)
+    for d in reversed(days):
+        nd = (pd.Timestamp(d) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        if nd in have:
+            return d
+    return days[-1] if days else None
+
+
 def main():
-    date = sys.argv[1] if len(sys.argv) > 1 else "2025-07-04"
-    # NOAA files are UTC calendar days; we want a local (Eastern) calendar day,
-    # which in July is UTC-4. So an EDT day D = UTC [D 04:00, D+1 04:00).
-    d0 = pd.Timestamp(date)
-    start = d0 + pd.Timedelta(hours=4)
-    end = d0 + pd.Timedelta(days=1, hours=4)
-    next_date = (d0 + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    date = sys.argv[1] if len(sys.argv) > 1 else most_recent_complete()
+    print(f"day: {date}")
+    # NOAA files are UTC calendar days; we want a local (Eastern) calendar day.
+    # Use real America/New_York offset so EST (winter) vs EDT (summer) is correct.
+    ny = ZoneInfo("America/New_York")
+    start = pd.Timestamp(date + " 00:00", tz=ny).tz_convert("UTC").tz_localize(None)
+    end = (pd.Timestamp(date + " 00:00", tz=ny) + pd.Timedelta(days=1)).tz_convert("UTC").tz_localize(None)
+    next_date = (pd.Timestamp(date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     parts = []
     for dd in (date, next_date):
         p = os.path.join(DAYS_DIR, f"ais-{dd}.parquet")
@@ -88,8 +102,15 @@ def main():
                 path.append(pt); ts.append(int(t.timestamp())); last_t = t
         n_pts += _flush(trips, cat, path, ts)
 
+    # per-category vessel counts for this day
+    cat_v = {c: set() for c in CATEGORIES}
+    for mmsi, g in df.groupby("mmsi", sort=False):
+        c = str(g["category"].iloc[0]); cat_v[c if c in cat_v else "other"].add(mmsi)
+    counts = {c: {"vessels": len(cat_v[c])} for c in CATEGORIES}
+    counts["_total"] = {"vessels": int(df.mmsi.nunique())}
+
     t_all = [tt for tr in trips for tt in tr["t"]]
-    out = {"date": date, "tMin": min(t_all), "tMax": max(t_all), "trips": trips}
+    out = {"date": date, "tMin": min(t_all), "tMax": max(t_all), "counts": counts, "trips": trips}
     os.makedirs(WEB_DIR, exist_ok=True)
     with open(os.path.join(WEB_DIR, "day.json"), "w") as f:
         json.dump(out, f, separators=(",", ":"))
