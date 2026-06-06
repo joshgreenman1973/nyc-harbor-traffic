@@ -24,6 +24,8 @@ WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "web")
 
 SAMPLE_MINUTES = 2       # fine: smooth motion for a single day
 MOVE_SOG = 1.5           # knots; below this a vessel is parked/jittering -> not drawn
+THROUGH_KM = 1.5         # but always keep a vessel that crossed the box this far,
+                         # even if it never read as 'underway' (through-traffic)
 GAP_MINUTES = 15
 MAX_STEP_KM = 3.0
 MIN_SEG_POINTS = 2
@@ -104,6 +106,22 @@ def main():
                     n_pts += _flush(trips, cat, path, ts); path, ts = [], []
                 path.append(pt); ts.append(int(t.timestamp())); last_t = t
         n_pts += _flush(trips, cat, path, ts)
+        # Safety net: a vessel that crossed the box but never registered as
+        # 'underway' (e.g. a slow drift-through) — include its track anyway so
+        # through-traffic that doesn't originate or dock here is never lost.
+        if len(trips) == before:
+            la = g.latitude.values; lo = g.longitude.values
+            if len(lo) >= 2 and _km([lo[0], la[0]], [lo[-1], la[-1]]) > THROUGH_KM:
+                path, ts, last_t = [], [], None
+                for lon, lat, t in zip(lo, la, g.t):
+                    if last_t is not None and (t - last_t) > gap:
+                        n_pts += _flush(trips, cat, path, ts); path, ts, last_t = [], [], None
+                    if last_t is None or (t - last_t) >= sample:
+                        pt = [round(float(lon), COORD_DP), round(float(lat), COORD_DP)]
+                        if path and _km(path[-1], pt) > MAX_STEP_KM:
+                            n_pts += _flush(trips, cat, path, ts); path, ts = [], []
+                        path.append(pt); ts.append(int(t.timestamp())); last_t = t
+                n_pts += _flush(trips, cat, path, ts)
         if len(trips) > before:
             moved[cstr if cstr in moved else "other"].add(mmsi)
 
