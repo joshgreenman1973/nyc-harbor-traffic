@@ -42,7 +42,7 @@ function categoryFor(t) {
 
 // ---- State --------------------------------------------------------------
 let manifest = null, allTrips = [];
-let dayData = null, dayLoading = false;
+const todayStore = new Map();   // mmsi -> {cat,name,path:[[lon,lat]..]} accumulated live today
 const active = new Set();
 let mode = "year", playing = true, currentTime = 0, daysPerSec = 3, lastFrame = 0;
 const DAY_LOOP_SEC = 60;           // seconds to play one full day
@@ -114,15 +114,6 @@ async function streamMonths() {
   }
 }
 
-async function ensureDay() {
-  if (dayData || dayLoading) return;
-  dayLoading = true;
-  showStatus('<span class="spin"></span>Loading the day…');
-  try { dayData = await (await fetch(DATA + "day.json")).json(); }
-  catch (e) { console.warn("day load failed", e); }
-  hideStatus(); dayLoading = false;
-  if (mode === "day" && dayData) currentTime = dayData.tMin;
-}
 
 // ---- Legend / filters ---------------------------------------------------
 function buildLegend() {
@@ -157,28 +148,23 @@ function yearLayers() {
   return [pencilTrips("trips", data, secPerSec * 1.4, currentTime, 2.0, 0.8)];
 }
 
-function dayLayers() {
-  if (!dayData) return [];
-  const range = dayData.tMax - dayData.tMin;
-  const rate = range / DAY_LOOP_SEC;
-  const data = dayData.trips.filter((d) => active.has(CATS()[d.c]));
-  // current vessel positions (heads of the comets) for a sense of live motion
-  const heads = [];
-  for (const d of data) {
-    const ts = d.t;
-    if (currentTime < ts[0] || currentTime > ts[ts.length - 1]) continue;
-    let i = 1; while (i < ts.length && ts[i] < currentTime) i++;
-    const a = d.p[i - 1], b = d.p[i] || a;
-    const f = ts[i] === ts[i - 1] ? 0 : (currentTime - ts[i - 1]) / (ts[i] - ts[i - 1]);
-    heads.push({ c: d.c, pos: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f] });
-  }
+// "Today" — today's crossings accumulating live from the relay, drawn as
+// persistent pencil tracks (PathLayer) with current vessel positions on top.
+function todayLayers() {
+  const paths = [...todayStore.values()].filter((v) => v.path.length > 1 && active.has(v.cat));
+  const heads = [...live.values()].filter((v) => active.has(v.cat) && v.lon != null);
   return [
-    pencilTrips("day-trips", data, rate * 1.6, currentTime, 2.4, 0.85),
+    new deck.PathLayer({
+      id: "today-paths", data: paths, getPath: (d) => d.path,
+      getColor: (d) => colorFor(d.cat), widthMinPixels: 1.6, opacity: 0.72,
+      capRounded: true, jointRounded: true, parameters: { depthTest: false },
+      updateTriggers: { getColor: [...active].join() },
+    }),
     new deck.ScatterplotLayer({
-      id: "day-heads", data: heads, getPosition: (d) => d.pos,
-      getFillColor: (d) => colorFor(CATS()[d.c]), getLineColor: [40, 32, 20, 200],
-      lineWidthMinPixels: 0.8, stroked: true, radiusMinPixels: 2.5, radiusMaxPixels: 6,
-      getRadius: 60, parameters: { depthTest: false },
+      id: "today-heads", data: heads, getPosition: (d) => [d.lon, d.lat],
+      getFillColor: (d) => colorFor(d.cat), getLineColor: [40, 32, 20, 200],
+      lineWidthMinPixels: 0.8, stroked: true, radiusMinPixels: 3, radiusMaxPixels: 7,
+      getRadius: 70, pickable: true, parameters: { depthTest: false },
       updateTriggers: { getFillColor: [...active].join() },
     }),
   ];
@@ -206,9 +192,9 @@ function tick(now) {
   if (mode === "year" && manifest) {
     if (playing) advance(dt, daysPerSec * 86400, manifest.tMin, manifest.tMax, updateYearClock);
     overlay.setProps({ layers: yearLayers() });
-  } else if (mode === "day" && dayData) {
-    if (playing) advance(dt, (dayData.tMax - dayData.tMin) / DAY_LOOP_SEC, dayData.tMin, dayData.tMax, updateDayClock);
-    overlay.setProps({ layers: dayLayers() });
+  } else if (mode === "day") {
+    updateTodayClock();
+    overlay.setProps({ layers: todayLayers() });
   } else if (mode === "live") {
     overlay.setProps({ layers: liveLayers() });
   }
@@ -228,19 +214,20 @@ function updateYearClock() {
   $("date").textContent = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
   $("season").textContent = SEASONS[d.getMonth()] + " " + d.getFullYear();
 }
-function updateDayClock() {
-  const d = new Date(currentTime * 1000);
+function updateTodayClock() {
+  const d = new Date();
   $("date").textContent = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
-  $("daytime").textContent = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  $("daytime").textContent = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) +
+    " · today, live";
 }
 
 // ---- Controls -----------------------------------------------------------
 $("play").onclick = () => { playing = !playing; $("play").textContent = playing ? "❚❚" : "▶"; };
 $("speed").onchange = (e) => { daysPerSec = +e.target.value; };
 $("timeline").oninput = (e) => {
-  const f = e.target.value / 1000;
-  if (mode === "year" && manifest) { currentTime = manifest.tMin + f * (manifest.tMax - manifest.tMin); updateYearClock(); }
-  else if (mode === "day" && dayData) { currentTime = dayData.tMin + f * (dayData.tMax - dayData.tMin); updateDayClock(); }
+  if (mode !== "year" || !manifest) return;
+  currentTime = manifest.tMin + (e.target.value / 1000) * (manifest.tMax - manifest.tMin);
+  updateYearClock();
 };
 
 // ---- Mode switching -----------------------------------------------------
@@ -260,11 +247,11 @@ function setMode(m) {
   show($("season"), m === "year");
   show($("daytime"), m === "day");
   show($("live-count"), m === "live");
-  show($("play"), m !== "live");
-  show($("timeline"), m !== "live");
-  if (ws && m !== "live") { ws.close(); ws = null; }
+  show($("play"), m === "year");
+  show($("timeline"), m === "year");
+  if (ws && m === "year") { ws.close(); ws = null; }
   if (m === "year" && manifest) { currentTime = manifest.tMin; updateYearClock(); }
-  else if (m === "day") { ensureDay().then(() => { if (dayData) { currentTime = dayData.tMin; updateDayClock(); } }); }
+  else if (m === "day") { connectLive(); updateTodayClock(); }
   else if (m === "live") connectLive();
 }
 
@@ -281,15 +268,25 @@ function connectLive() {
       v.lon = msg.lon; v.lat = msg.lat; v.hdg = msg.hdg; v.sog = msg.sog;
       if (msg.name) v.name = msg.name;
       v.trail.push([msg.lon, msg.lat, t]); if (v.trail.length > 60) v.trail.shift(); v.last = t;
-    } else if (msg.type === "static") { if (msg.name) v.name = msg.name; v.cat = categoryFor(msg.shipType); }
+      // accumulate today's full track (persists for the session)
+      let d2 = todayStore.get(msg.mmsi);
+      if (!d2) { d2 = { cat: v.cat || "other", name: v.name || "", path: [] }; todayStore.set(msg.mmsi, d2); }
+      const last = d2.path[d2.path.length - 1];
+      if (!last || Math.abs(last[0] - msg.lon) + Math.abs(last[1] - msg.lat) > 0.00012) {
+        d2.path.push([msg.lon, msg.lat]); if (d2.path.length > 2500) d2.path.shift();
+      }
+    } else if (msg.type === "static") {
+      if (msg.name) v.name = msg.name; v.cat = categoryFor(msg.shipType);
+      const d2 = todayStore.get(msg.mmsi); if (d2) { d2.cat = v.cat; if (msg.name) d2.name = msg.name; }
+    }
   };
   ws.onclose = () => { if (mode === "live") $("live-count").textContent = "disconnected"; };
   ws.onerror = () => { $("live-count").textContent = "live unavailable"; };
   setInterval(() => {
-    if (mode !== "live") return;
+    if (mode !== "live" && mode !== "day") return;
     const cut = Date.now() / 1000 - 600;
     for (const [k, v] of live) if ((v.last || 0) < cut) live.delete(k);
-    $("live-count").textContent = `${live.size} vessels on the water`;
+    if (mode === "live") $("live-count").textContent = `${live.size} vessels on the water`;
   }, 2000);
 }
 
