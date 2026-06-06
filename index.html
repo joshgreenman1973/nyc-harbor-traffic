@@ -89,7 +89,13 @@
 </div>
 
 <div id="notice">Not for navigation · Chart: NOAA ENC® · Tracks: AIS</div>
+<button id="stats-btn" title="A year of harbor traffic, by the numbers">▴ By the numbers</button>
 <a class="method" href="methodology.html">Methodology &amp; data sources →</a>
+
+<div id="stats-panel" class="hidden">
+  <button id="stats-close" aria-label="Close">×</button>
+  <div id="stats-body"></div>
+</div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/deck.gl@9.0.36/dist.min.js"></script>

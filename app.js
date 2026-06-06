@@ -427,6 +427,57 @@ overlay.setProps({
   }
 })();
 
+// ---- Stats panel ("by the numbers") -------------------------------------
+let stats = null;
+async function ensureStats() {
+  if (stats) return;
+  try { stats = await (await fetch(DATA + "stats.json")).json(); }
+  catch (e) { console.warn("stats load failed", e); }
+}
+const kfmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "k" : "" + n);
+function renderStats() {
+  const s = stats, cats = manifest.categories, C = (c) => `rgb(${colorFor(c)})`;
+  const maxM = Math.max(...s.byMonth.map((m) => m.vessels));
+  const MW = 640, MH = 156, base = MH - 20, top = 14, bw = MW / 12;
+  let bars = "";
+  s.byMonth.forEach((m, i) => {
+    let y = base; const x = i * bw + bw * 0.16, w = bw * 0.68;
+    cats.forEach((cat) => {
+      const v = m.byCat[cat] || 0, h = (v / maxM) * (base - top);
+      if (h > 0.5) { y -= h; bars += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${C(cat)}" opacity="0.92"/>`; }
+    });
+    bars += `<text x="${i * bw + bw / 2}" y="${MH - 5}" text-anchor="middle" font-size="10" fill="#3f5e7d" font-family="IBM Plex Mono">${m.m[0]}</text>`;
+    bars += `<text x="${i * bw + bw / 2}" y="${y - 3}" text-anchor="middle" font-size="9" fill="#14304a" font-family="IBM Plex Mono">${kfmt(m.vessels)}</text>`;
+  });
+  const monthly = `<svg viewBox="0 0 ${MW} ${MH}" width="100%" style="display:block">${bars}</svg>`;
+  const maxC = Math.max(...s.byCategory.map((c) => c.vessels));
+  const fleet = s.byCategory.slice().sort((a, b) => b.vessels - a.vessels).map((c) =>
+    `<div class="srow"><span class="slab"><span class="sdot" style="background:${C(c.cat)}"></span>${LABELS[c.cat] || c.cat}</span>
+     <span class="sbar"><span style="width:${(c.vessels / maxC * 100).toFixed(1)}%;background:${C(c.cat)}"></span></span>
+     <span class="sval">${fmt(c.vessels)}</span></div>`).join("");
+  const maxO = Math.max(...s.origins.map((o) => o.vesselDays));
+  const orig = s.origins.map((o) =>
+    `<div class="srow"><span class="slab">${o.gateway}</span>
+     <span class="sbar"><span style="width:${(o.vesselDays / maxO * 100).toFixed(1)}%;background:#1b3a5b"></span></span>
+     <span class="sval">${fmt(o.vesselDays)}</span></div>`).join("");
+  $("stats-body").innerHTML = `
+    <h2 class="sh1">New York Harbor by the numbers · ${s.year}</h2>
+    <p class="ssub">${fmt(s.totalVessels)} distinct vessels broadcast AIS in the harbor over the year.</p>
+    <h3 class="sh2">Traffic by month <span>— distinct vessels, stacked by type</span></h3>
+    ${monthly}
+    <div class="scols">
+      <div><h3 class="sh2">Fleet composition</h3>${fleet}</div>
+      <div><h3 class="sh2">Where vessels come from</h3>${orig}
+        <p class="snote">Each vessel's first position of the day, by gateway — most traffic begins at a berth inside the harbor.</p></div>
+    </div>
+    <h3 class="sh2">Seasonal notes</h3>
+    <ul class="sfacts">${s.facts.map((f) => `<li>${f}</li>`).join("")}</ul>
+    <p class="snote">Source: NOAA Marine Cadastre AIS, 2025. Small craft without transponders are undercounted — see the methodology page.</p>`;
+}
+$("stats-btn").onclick = async () => { await ensureStats(); if (stats) { renderStats(); $("stats-panel").classList.remove("hidden"); } };
+$("stats-close").onclick = () => $("stats-panel").classList.add("hidden");
+$("stats-panel").onclick = (e) => { if (e.target.id === "stats-panel") $("stats-panel").classList.add("hidden"); };
+
 // ---- Go -----------------------------------------------------------------
 map.on("load", () => { try { addGraticule(); } catch (e) { console.warn("graticule", e); } map.resize(); });
 // Default controls are hidden until setMode() configures them for 'A day'.
