@@ -87,7 +87,7 @@ function addGraticule() {
   map.addSource("grat", { type: "geojson",
     data: { type: "Feature", geometry: { type: "MultiLineString", coordinates: lines } } });
   map.addLayer({ id: "grat", type: "line", source: "grat",
-    paint: { "line-color": "#14304a", "line-opacity": 0.08, "line-width": 0.5, "line-dasharray": [3, 4] } });
+    paint: { "line-color": "#14304a", "line-opacity": 0.04, "line-width": 0.35, "line-dasharray": [1, 7] } });
 }
 
 // ---- Data ---------------------------------------------------------------
