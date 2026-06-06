@@ -247,7 +247,7 @@ function tick(now) {
 function setYearLabel() {
   $("date").textContent = "2025";
   const tot = manifest.counts && manifest.counts._total;
-  $("season").textContent = tot ? `${fmt(tot.vessels)} vessels · ${fmt(tot.transits)} transits` : "every transit, by type";
+  $("season").textContent = tot ? `${fmt(tot.vessels)} vessels · ${fmt(tot.transits)} vessel-days` : "by vessel type";
 }
 function updateDayClock() {
   const d0 = new Date(dayData.tMin * 1000);
