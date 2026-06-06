@@ -46,8 +46,8 @@
 </header>
 
 <div id="modes">
-  <button id="mode-year" class="active">Year</button>
-  <button id="mode-day" class="day">A day</button>
+  <button id="mode-year">Year</button>
+  <button id="mode-day" class="day active">A day</button>
   <button id="mode-live" class="live">● Live</button>
 </div>
 
@@ -62,10 +62,17 @@
       <span id="date" class="mono">—</span>
       <span id="season"></span>
       <span id="daytime" class="mono" style="display:none"></span>
+      <span id="daynote"></span>
       <span id="live-count" style="display:none"></span>
     </div>
     <button id="play" title="Play / pause">❚❚</button>
     <input id="timeline" type="range" min="0" max="1000" value="0" />
+    <select id="speed" title="Animation speed">
+      <option value="120">Slow</option>
+      <option value="60" selected>Normal</option>
+      <option value="30">Fast</option>
+      <option value="15">Faster</option>
+    </select>
     <button id="daytoggle" title="Animate the day, or show the whole day at once">Whole day</button>
   </div>
   <div class="row">

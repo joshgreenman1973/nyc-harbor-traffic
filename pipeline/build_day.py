@@ -23,12 +23,11 @@ DAYS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "days")
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "web")
 
 SAMPLE_MINUTES = 2       # fine: smooth motion for a single day
-IDLE_MINUTES = 30
-IDLE_SOG = 1.0
+MOVE_SOG = 1.5           # knots; below this a vessel is parked/jittering -> not drawn
 GAP_MINUTES = 15
 MAX_STEP_KM = 3.0
 MIN_SEG_POINTS = 2
-MIN_SEG_MOVE = 0.0015
+MIN_SEG_MOVE = 0.003     # ~330 m; a real journey moves, GPS jitter doesn't
 COORD_DP = 5
 
 
@@ -83,31 +82,34 @@ def main():
     df = df[(df["t"] >= start) & (df["t"] < end)].sort_values(["mmsi", "t"])
     cat_idx = {c: i for i, c in enumerate(CATEGORIES)}
     sample = pd.Timedelta(minutes=SAMPLE_MINUTES)
-    idle = pd.Timedelta(minutes=IDLE_MINUTES)
     gap = pd.Timedelta(minutes=GAP_MINUTES)
 
     trips, n_pts = [], 0
+    moved = {c: set() for c in CATEGORIES}   # vessels that actually got underway
     for mmsi, g in df.groupby("mmsi", sort=False):
         g = g.reset_index(drop=True)
-        cat = cat_idx.get(str(g["category"].iloc[0]), len(CATEGORIES) - 1)
+        cstr = str(g["category"].iloc[0])
+        cat = cat_idx.get(cstr, len(CATEGORIES) - 1)
         path, ts, last_t = [], [], None
+        before = len(trips)
         for lon, lat, t, sog in zip(g.longitude.values, g.latitude.values, g.t, g.sog.fillna(0).values):
+            if sog < MOVE_SOG:   # parked / jittering -> end the current journey, don't draw
+                n_pts += _flush(trips, cat, path, ts); path, ts, last_t = [], [], None
+                continue
             if last_t is not None and (t - last_t) > gap:
                 n_pts += _flush(trips, cat, path, ts); path, ts, last_t = [], [], None
-            spacing = idle if sog < IDLE_SOG else sample
-            if last_t is None or (t - last_t) >= spacing:
+            if last_t is None or (t - last_t) >= sample:
                 pt = [round(float(lon), COORD_DP), round(float(lat), COORD_DP)]
                 if path and _km(path[-1], pt) > MAX_STEP_KM:
                     n_pts += _flush(trips, cat, path, ts); path, ts = [], []
                 path.append(pt); ts.append(int(t.timestamp())); last_t = t
         n_pts += _flush(trips, cat, path, ts)
+        if len(trips) > before:
+            moved[cstr if cstr in moved else "other"].add(mmsi)
 
-    # per-category vessel counts for this day
-    cat_v = {c: set() for c in CATEGORIES}
-    for mmsi, g in df.groupby("mmsi", sort=False):
-        c = str(g["category"].iloc[0]); cat_v[c if c in cat_v else "other"].add(mmsi)
-    counts = {c: {"vessels": len(cat_v[c])} for c in CATEGORIES}
-    counts["_total"] = {"vessels": int(df.mmsi.nunique())}
+    # counts = vessels that actually made a journey (matches what's drawn)
+    counts = {c: {"vessels": len(moved[c])} for c in CATEGORIES}
+    counts["_total"] = {"vessels": sum(len(moved[c]) for c in CATEGORIES)}
 
     t_all = [tt for tr in trips for tt in tr["t"]]
     out = {"date": date, "tMin": min(t_all), "tMax": max(t_all), "counts": counts, "trips": trips}

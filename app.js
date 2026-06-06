@@ -34,9 +34,9 @@ function categoryFor(t) {
 let manifest = null, heat = null;
 let dayData = null, dayLoaded = false;
 const active = new Set();
-let mode = "year";
+let mode = "";   // set by setMode() once data is ready; 'A day' is the default
 let playing = true, dayStatic = false, dayTime = 0, lastFrame = 0;
-const DAY_LOOP_SEC = 60;
+let dayLoopSec = 60;   // seconds to play one full day (set by the speed control)
 let ws = null, liveStart = 0;
 const live = new Map();
 const RADAR_WINDOW = 2 * 3600;   // seconds of wake to keep (fading radar echo)
@@ -91,13 +91,14 @@ async function loadData() {
   manifest = await (await fetch(DATA + "manifest.json")).json();
   manifest.categories.forEach((c) => active.add(c));
   buildLegend();
-  try { heat = await (await fetch(DATA + "heat.json")).json(); }
-  catch (e) { console.warn("heat load failed", e); }
   hideStatus();
-  setYearLabel();
-  renderStatic();
   lastFrame = performance.now();
   requestAnimationFrame(tick);
+  setMode("day");   // 'A day' is the default view (most recent complete day)
+  // background-load the year heatmap so Year is instant when opened
+  fetch(DATA + "heat.json").then((r) => r.json())
+    .then((h) => { heat = h; if (mode === "year") renderStatic(); })
+    .catch((e) => console.warn("heat load failed", e));
 }
 async function ensureDay() {
   if (dayLoaded) return;
@@ -164,7 +165,7 @@ function yearLayers() {
 }
 function dayAnimLayers() {
   const data = dayData.trips.filter((d) => active.has(CATS()[d.c]));
-  const rate = (dayData.tMax - dayData.tMin) / DAY_LOOP_SEC;
+  const rate = (dayData.tMax - dayData.tMin) / dayLoopSec;
   const heads = [];
   for (const d of data) {
     const ts = d.t;
@@ -199,8 +200,8 @@ function liveLayers() {
   // wakes: every vessel with a recent track, fading over the radar window
   const trails = all.filter((v) => v.trail.length > 1)
     .map((v) => ({ c: CATS().indexOf(v.cat), p: v.trail.map((q) => [q[0], q[1]]), t: v.trail.map((q) => q[2]) }));
-  // bright heads: only vessels that pinged in the last few minutes
-  const dots = all.filter((v) => v.lon != null && now - (v.last || 0) < 300);
+  // bright heads: vessels that pinged recently
+  const dots = all.filter((v) => v.lon != null && now - (v.last || 0) < 600);
   return [
     // soft glow underlay
     new deck.TripsLayer({ id: "radar-glow", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
@@ -229,7 +230,7 @@ function tick(now) {
   const dt = Math.min((now - lastFrame) / 1000, 0.1); lastFrame = now;
   if (mode === "day" && dayData && !dayStatic) {
     if (playing) {
-      const rate = (dayData.tMax - dayData.tMin) / DAY_LOOP_SEC;
+      const rate = (dayData.tMax - dayData.tMin) / dayLoopSec;
       dayTime += rate * dt;
       if (dayTime > dayData.tMax) dayTime = dayData.tMin;
       $("timeline").value = Math.round((dayTime - dayData.tMin) / (dayData.tMax - dayData.tMin) * 1000);
@@ -264,12 +265,13 @@ $("timeline").oninput = (e) => {
   updateDayClock();
   if (dayStatic) renderStatic();
 };
+$("speed").onchange = (e) => { dayLoopSec = +e.target.value; };
 $("daytoggle").onclick = () => {
   dayStatic = !dayStatic;
   $("daytoggle").classList.toggle("on", dayStatic);
   $("daytoggle").textContent = dayStatic ? "Animate" : "Whole day";
   const vis = (el, on) => (el.style.display = on ? "" : "none");
-  vis($("play"), !dayStatic); vis($("timeline"), !dayStatic);
+  vis($("play"), !dayStatic); vis($("timeline"), !dayStatic); vis($("speed"), !dayStatic);
   updateDayClock();
   renderStatic();
 };
@@ -288,15 +290,20 @@ function setMode(m) {
   vis($("date"), m !== "live");
   vis($("season"), m === "year");
   vis($("daytime"), m === "day");
+  vis($("daynote"), m === "day");
   vis($("live-count"), m === "live");
   vis($("daytoggle"), m === "day");
+  vis($("speed"), m === "day" && !dayStatic);
   vis($("play"), m === "day" && !dayStatic);
   vis($("timeline"), m === "day" && !dayStatic);
   if (ws && m !== "live") { ws.close(); ws = null; }
   updateCounts();
   overlay.setProps({ layers: [] });
   if (m === "year") { setYearLabel(); renderStatic(); }
-  else if (m === "day") { ensureDay().then(() => { if (dayData) { dayTime = dayData.tMin; updateDayClock(); updateCounts(); renderStatic(); } }); }
+  else if (m === "day") {
+    $("daynote").textContent = "· most recent complete day — the public AIS archive lags a few weeks";
+    ensureDay().then(() => { if (dayData) { dayTime = dayData.tMin; updateDayClock(); updateCounts(); renderStatic(); } });
+  }
   else if (m === "live") connectLive();
 }
 
@@ -328,7 +335,7 @@ function connectLive() {
     for (const [k, v] of live) {
       while (v.trail.length && v.trail[0][2] < cut) v.trail.shift();
       if (v.trail.length === 0 && now - (v.last || 0) > RADAR_WINDOW) { live.delete(k); continue; }
-      if (now - (v.last || 0) < 300) activeNow++;
+      if (now - (v.last || 0) < 600) activeNow++;
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
@@ -362,7 +369,6 @@ overlay.setProps({
 
 // ---- Go -----------------------------------------------------------------
 map.on("load", () => { try { addGraticule(); } catch (e) { console.warn("graticule", e); } map.resize(); });
-// Year is static; set the initial controls visibility for year mode.
-$("daytoggle").style.display = "none"; $("daytime").style.display = "none";
-$("live-count").style.display = "none"; $("play").style.display = "none"; $("timeline").style.display = "none";
+// Default controls are hidden until setMode() configures them for 'A day'.
+$("season").style.display = "none"; $("live-count").style.display = "none";
 loadData();

@@ -101,6 +101,9 @@ html, body { height: 100%; background: #dfe7ea; color: var(--ink);
 }
 #play:hover { background: var(--ink); color: var(--paper-2); }
 #timeline { flex: 1; min-width: 170px; accent-color: var(--magenta); height: 3px; cursor: pointer; }
+#speed { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule);
+  padding: 7px 9px; font: 500 12px "IBM Plex Mono", monospace; cursor: pointer; }
+#daynote { font-size: 11.5px; font-style: italic; color: var(--ink-soft); }
 #daytoggle { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule);
   padding: 7px 12px; font: 600 11px "Spectral", serif; font-variant: small-caps; letter-spacing: 0.5px;
   cursor: pointer; white-space: nowrap; }
