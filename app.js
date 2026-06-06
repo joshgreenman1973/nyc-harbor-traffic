@@ -38,8 +38,9 @@ const active = new Set();
 let mode = "year";
 let playing = true, dayStatic = false, dayTime = 0, lastFrame = 0;
 const DAY_LOOP_SEC = 60;
-let ws = null;
+let ws = null, liveStart = 0;
 const live = new Map();
+const RADAR_WINDOW = 2 * 3600;   // seconds of wake to keep (fading radar echo)
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status"), statusText = $("status-text");
@@ -185,16 +186,25 @@ function dayStaticLayers() {
 }
 function liveLayers() {
   const now = Date.now() / 1000;
-  const dots = [...live.values()].filter((v) => active.has(v.cat) && v.lon != null);
-  const trails = dots.filter((v) => v.trail.length > 1)
+  const all = [...live.values()].filter((v) => active.has(v.cat));
+  // wakes: every vessel with a recent track, fading over the radar window
+  const trails = all.filter((v) => v.trail.length > 1)
     .map((v) => ({ c: CATS().indexOf(v.cat), p: v.trail.map((q) => [q[0], q[1]]), t: v.trail.map((q) => q[2]) }));
+  // bright heads: only vessels that pinged in the last few minutes
+  const dots = all.filter((v) => v.lon != null && now - (v.last || 0) < 300);
   return [
-    new deck.TripsLayer({ id: "live-trails", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
-      getColor: (d) => colorFor(CATS()[d.c]), opacity: 0.8, widthMinPixels: 2,
-      jointRounded: true, capRounded: true, trailLength: 1200, currentTime: now, fadeTrail: true,
+    // soft glow underlay
+    new deck.TripsLayer({ id: "radar-glow", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
+      getColor: (d) => colorFor(CATS()[d.c]), opacity: 0.22, widthMinPixels: 6,
+      capRounded: true, jointRounded: true, trailLength: RADAR_WINDOW, currentTime: now, fadeTrail: true,
+      parameters: { depthTest: false } }),
+    // the wake itself
+    new deck.TripsLayer({ id: "radar-wake", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
+      getColor: (d) => colorFor(CATS()[d.c]), opacity: 0.85, widthMinPixels: 1.8,
+      capRounded: true, jointRounded: true, trailLength: RADAR_WINDOW, currentTime: now, fadeTrail: true,
       parameters: { depthTest: false } }),
     new deck.ScatterplotLayer({ id: "live-dots", data: dots, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => colorFor(d.cat), getLineColor: [40, 32, 20, 200], lineWidthMinPixels: 1, stroked: true,
+      getFillColor: (d) => colorFor(d.cat), getLineColor: [40, 32, 20, 220], lineWidthMinPixels: 1, stroked: true,
       getRadius: (d) => (d.cat === "cargo" || d.cat === "tanker" ? 120 : 75), radiusMinPixels: 3.5, radiusMaxPixels: 13,
       pickable: true, parameters: { depthTest: false }, updateTriggers: { getFillColor: [...active].join() } }),
   ];
@@ -284,6 +294,7 @@ function setMode(m) {
 // ---- Live websocket -----------------------------------------------------
 function connectLive() {
   $("live-count").textContent = "connecting…";
+  if (!liveStart) liveStart = Date.now();
   try { ws = new WebSocket(RELAY_URL); } catch (e) { $("live-count").textContent = "live unavailable"; return; }
   ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
@@ -293,16 +304,25 @@ function connectLive() {
     if (msg.type === "pos") {
       v.lon = msg.lon; v.lat = msg.lat; v.hdg = msg.hdg; v.sog = msg.sog;
       if (msg.name) v.name = msg.name;
-      v.trail.push([msg.lon, msg.lat, t]); if (v.trail.length > 60) v.trail.shift(); v.last = t;
+      v.trail.push([msg.lon, msg.lat, t]);
+      const cut = t - RADAR_WINDOW;
+      while (v.trail.length && v.trail[0][2] < cut) v.trail.shift();
+      v.last = t;
     } else if (msg.type === "static") { if (msg.name) v.name = msg.name; v.cat = categoryFor(msg.shipType); }
   };
   ws.onclose = () => { if (mode === "live") $("live-count").textContent = "disconnected"; };
   ws.onerror = () => { $("live-count").textContent = "live unavailable"; };
   setInterval(() => {
     if (mode !== "live") return;
-    const cut = Date.now() / 1000 - 600;
-    for (const [k, v] of live) if ((v.last || 0) < cut) live.delete(k);
-    $("live-count").textContent = `${live.size} vessels on the water`;
+    const now = Date.now() / 1000, cut = now - RADAR_WINDOW;
+    let activeNow = 0;
+    for (const [k, v] of live) {
+      while (v.trail.length && v.trail[0][2] < cut) v.trail.shift();
+      if (v.trail.length === 0 && now - (v.last || 0) > RADAR_WINDOW) { live.delete(k); continue; }
+      if (now - (v.last || 0) < 300) activeNow++;
+    }
+    const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+    $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
   }, 2000);
 }
 
