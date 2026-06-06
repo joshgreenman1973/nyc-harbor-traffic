@@ -37,9 +37,14 @@ const active = new Set();
 let mode = "";   // set by setMode() once data is ready; 'A day' is the default
 let playing = true, dayStatic = false, dayTime = 0, lastFrame = 0;
 let dayLoopSec = 60;   // seconds to play one full day (set by the speed control)
-let ws = null, liveStart = 0;
+let ws = null, liveStart = 0, vessels = null;
 const live = new Map();
 const RADAR_WINDOW = 2 * 3600;   // seconds of wake to keep (fading radar echo)
+async function loadVessels() {   // MMSI -> [catIdx, name] from the 2025 archive
+  if (vessels) return;
+  try { vessels = await (await fetch(DATA + "vessels.json")).json(); }
+  catch (e) { console.warn("vessel lookup load failed", e); vessels = {}; }
+}
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status"), statusText = $("status-text");
@@ -324,12 +329,18 @@ function setMode(m) {
 function connectLive() {
   $("live-count").textContent = "connecting…";
   if (!liveStart) liveStart = Date.now();
+  loadVessels();
   try { ws = new WebSocket(RELAY_URL); } catch (e) { $("live-count").textContent = "live unavailable"; return; }
   ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
     const t = Date.now() / 1000;
     let v = live.get(msg.mmsi);
     if (!v) { v = { cat: "other", name: "", trail: [], __mmsi: msg.mmsi }; live.set(msg.mmsi, v); }
+    // fill type/name instantly from the 2025 archive until AIS static data arrives
+    if (vessels && (v.cat === "other" || !v.name)) {
+      const lk = vessels[msg.mmsi];
+      if (lk) { if (v.cat === "other") v.cat = CATS()[lk[0]] || "other"; if (!v.name) v.name = lk[1] || ""; }
+    }
     if (msg.type === "pos") {
       v.lon = msg.lon; v.lat = msg.lat; v.hdg = msg.hdg; v.sog = msg.sog; v.cog = msg.cog; v.nav = msg.nav;
       if (msg.name) v.name = msg.name;
