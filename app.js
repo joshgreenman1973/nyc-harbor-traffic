@@ -255,6 +255,7 @@ function setMode(m) {
   $("mode-live").classList.toggle("active", m === "live");
   // show/hide controls per mode
   const show = (el, on) => { el.style.display = on ? "" : "none"; };
+  show($("date"), m !== "live");
   show($("speed"), m === "year");
   show($("season"), m === "year");
   show($("daytime"), m === "day");
