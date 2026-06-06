@@ -62,7 +62,8 @@ const map = new maplibregl.Map({
     sources: { enc: { type: "raster", tiles: [ENC_TILES], tileSize: 256, attribution: "Chart: NOAA ENC®" } },
     layers: [
       { id: "bg", type: "background", paint: { "background-color": "#e8dab9" } },
-      { id: "enc", type: "raster", source: "enc" },
+      // slightly muted so the vessel layer wins the colour hierarchy over the chart's magenta
+      { id: "enc", type: "raster", source: "enc", paint: { "raster-opacity": 0.88 } },
     ],
   },
   center: [-73.97, 40.655], zoom: 10,
@@ -131,12 +132,19 @@ function buildLegend() {
   });
   updateCounts();
 }
+function liveCounts() {
+  const now = Date.now() / 1000, c = {};
+  CATS().forEach((cat) => (c[cat] = { vessels: 0 }));
+  for (const v of live.values()) if (v.lon != null && now - (v.last || 0) < 900) (c[v.cat] || c.other).vessels++;
+  return c;
+}
 function updateCounts() {
-  const src = mode === "day" ? (dayData && dayData.counts) : (mode === "year" ? manifest.counts : null);
+  const src = mode === "day" ? (dayData && dayData.counts)
+    : mode === "year" ? manifest.counts
+      : mode === "live" ? liveCounts() : null;
   document.querySelectorAll("#legend .chip").forEach((chip) => {
     const c = chip.dataset.cat;
-    const span = chip.querySelector(".cnt");
-    span.textContent = src && src[c] ? fmt(src[c].vessels) : "";
+    chip.querySelector(".cnt").textContent = src && src[c] ? fmt(src[c].vessels) : "";
   });
 }
 
@@ -277,6 +285,13 @@ function updateDayClock() {
 }
 
 // ---- Controls -----------------------------------------------------------
+// Intro card: dismissible, and auto-dims once the user starts exploring the map
+// (so it stops occluding the harbor) — hovering brings it back.
+$("title-close").onclick = () => $("title").classList.add("hidden");
+let titleDimmed = false;
+const dimTitle = () => { if (!titleDimmed) { titleDimmed = true; $("title").classList.add("dim"); } };
+map.on("dragstart", dimTitle); map.on("zoomstart", dimTitle);
+
 $("play").onclick = () => { playing = !playing; $("play").textContent = playing ? "❚❚" : "▶"; };
 $("timeline").oninput = (e) => {
   if (mode !== "day" || !dayData) return;
@@ -368,6 +383,7 @@ function connectLive() {
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
+    updateCounts();   // keep per-type counts live & consistent with Year/Day
   }, 2000);
 }
 

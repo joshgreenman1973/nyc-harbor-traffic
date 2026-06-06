@@ -4,16 +4,24 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Harbor Motion — methodology & data sources</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-  body { background:#05080f; color:#e8eefc; font-family:"Space Grotesk",system-ui,sans-serif;
-    max-width:760px; margin:0 auto; padding:48px 22px 80px; line-height:1.6; }
-  a { color:#00c8ff; } h1 { font-size:28px; } h2 { font-size:18px; margin-top:34px; color:#00c8ff; }
-  code { font-family:"IBM Plex Mono",monospace; background:rgba(255,255,255,0.07); padding:1px 5px; border-radius:4px; font-size:13px; }
+  :root { --ink:#14304a; --ink-soft:#3f5e7d; --magenta:#b51e7a; --paper:#f7f0dd; --rule:#1b3a5b; }
+  body { background:var(--paper); color:var(--ink); font-family:"Spectral",Georgia,serif;
+    max-width:760px; margin:0 auto; padding:48px 24px 90px; line-height:1.65;
+    background-image: radial-gradient(120% 100% at 50% 0%, rgba(120,92,40,0) 60%, rgba(120,92,40,0.07) 100%); }
+  a { color:var(--magenta); } a:hover { text-decoration:none; }
+  h1 { font-size:30px; font-weight:700; font-variant:small-caps; letter-spacing:0.5px; }
+  h2 { font-size:19px; margin-top:36px; color:var(--ink); font-variant:small-caps; letter-spacing:0.4px;
+    border-bottom:1px solid rgba(27,58,91,0.25); padding-bottom:4px; }
+  code { font-family:"IBM Plex Mono",monospace; background:rgba(20,48,74,0.08); padding:1px 5px;
+    border-radius:3px; font-size:13px; color:var(--ink); }
   table { border-collapse:collapse; width:100%; margin-top:12px; font-size:14px; }
-  td,th { border:1px solid rgba(120,160,210,0.2); padding:7px 10px; text-align:left; }
-  .dim { color:#8da2c4; } .back { display:inline-block; margin-bottom:24px; }
+  td,th { border:1px solid rgba(27,58,91,0.25); padding:7px 10px; text-align:left; }
+  th { background:rgba(20,48,74,0.06); }
+  .dim { color:var(--ink-soft); font-style:italic; } .back { display:inline-block; margin-bottom:24px; font-style:italic; }
   li { margin:5px 0; }
+  strong { color:var(--ink); }
 </style>
 </head>
 <body>

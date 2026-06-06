@@ -39,6 +39,7 @@
 </svg>
 
 <header id="title">
+  <button id="title-close" aria-label="Hide intro" title="Hide">×</button>
   <h1>Harbor Motion</h1>
   <p class="sub">Boat traffic across New York Harbor — its rivers and bays, the New Jersey ports and
   the ocean approaches — on the working NOAA nautical chart. A whole year, a single day's crossings, or
@@ -67,16 +68,16 @@
     </div>
     <button id="play" title="Play / pause">❚❚</button>
     <input id="timeline" type="range" min="0" max="1000" value="0" />
-    <select id="speed" title="Animation speed">
-      <option value="120">Slow</option>
-      <option value="60" selected>Normal</option>
-      <option value="30">Fast</option>
-      <option value="15">Faster</option>
+    <select id="speed" title="How long the full day takes to play">
+      <option value="120">whole day in 2 min</option>
+      <option value="60" selected>whole day in 1 min</option>
+      <option value="30">whole day in 30 s</option>
+      <option value="15">whole day in 15 s</option>
     </select>
     <button id="daytoggle" title="Animate the day, or show the whole day at once">Whole day</button>
   </div>
   <div class="row">
-    <span class="keylabel">Vessel types</span>
+    <span class="keylabel">Tap to filter ↓</span>
     <div id="legend"></div>
   </div>
   <div class="row">
