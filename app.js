@@ -339,7 +339,11 @@ function setMode(m) {
   else if (m === "day") {
     ensureDay().then(() => { if (dayData) { dayTime = dayData.tMin; setDayNote(); updateDayClock(); updateCounts(); renderStatic(); } });
   }
-  else if (m === "live") connectLive();
+  else if (m === "live") { connectLive(); showToast("Live view fills in over a minute as vessels' transponders report."); }
+}
+function showToast(msg, ms = 11000) {
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(showToast._t); showToast._t = setTimeout(() => el.classList.remove("show"), ms);
 }
 
 // ---- Live websocket -----------------------------------------------------
