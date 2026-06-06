@@ -64,15 +64,23 @@ export default {
             mmsi: meta.MMSI,
             lat: r.Latitude, lon: r.Longitude,
             cog: r.Cog, sog: r.Sog, hdg: r.TrueHeading,
+            nav: r.NavigationalStatus,
             name: (meta.ShipName || "").trim(),
           }));
         } else if (type === "ShipStaticData") {
           const s = msg.Message.ShipStaticData;
+          const dim = s.Dimension || {};
           server.send(JSON.stringify({
             type: "static",
             mmsi: meta.MMSI,
             name: (s.Name || meta.ShipName || "").trim(),
             shipType: s.Type,
+            callsign: (s.CallSign || "").trim(),
+            imo: s.ImoNumber || null,
+            dest: (s.Destination || "").trim(),
+            draught: s.MaximumStaticDraught || null,
+            length: (dim.A || 0) + (dim.B || 0),
+            width: (dim.C || 0) + (dim.D || 0),
           }));
         }
       } catch (_) { /* ignore malformed */ }

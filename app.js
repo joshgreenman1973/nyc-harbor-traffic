@@ -329,15 +329,20 @@ function connectLive() {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
     const t = Date.now() / 1000;
     let v = live.get(msg.mmsi);
-    if (!v) { v = { cat: "other", name: "", trail: [] }; live.set(msg.mmsi, v); }
+    if (!v) { v = { cat: "other", name: "", trail: [], __mmsi: msg.mmsi }; live.set(msg.mmsi, v); }
     if (msg.type === "pos") {
-      v.lon = msg.lon; v.lat = msg.lat; v.hdg = msg.hdg; v.sog = msg.sog;
+      v.lon = msg.lon; v.lat = msg.lat; v.hdg = msg.hdg; v.sog = msg.sog; v.cog = msg.cog; v.nav = msg.nav;
       if (msg.name) v.name = msg.name;
       v.trail.push([msg.lon, msg.lat, t]);
       const cut = t - RADAR_WINDOW;
       while (v.trail.length && v.trail[0][2] < cut) v.trail.shift();
       v.last = t;
-    } else if (msg.type === "static") { if (msg.name) v.name = msg.name; v.cat = categoryFor(msg.shipType); }
+    } else if (msg.type === "static") {
+      if (msg.name) v.name = msg.name;
+      v.cat = categoryFor(msg.shipType);
+      v.dest = msg.dest; v.callsign = msg.callsign; v.imo = msg.imo;
+      v.length = msg.length; v.width = msg.width; v.draught = msg.draught;
+    }
   };
   ws.onclose = () => { if (mode === "live") $("live-count").textContent = "disconnected"; };
   ws.onerror = () => { $("live-count").textContent = "live unavailable"; };
@@ -356,13 +361,26 @@ function connectLive() {
 }
 
 // ---- Hover tooltip ------------------------------------------------------
+const NAV = {
+  0: "Under way", 1: "At anchor", 2: "Not under command", 3: "Restricted manoeuvrability",
+  4: "Constrained by draught", 5: "Moored", 6: "Aground", 7: "Fishing", 8: "Under way (sailing)",
+};
+const ago = (sec) => { const s = Math.max(0, Math.round(Date.now() / 1000 - sec));
+  return s < 90 ? `${s}s ago` : `${Math.round(s / 60)} min ago`; };
 overlay.setProps({
   onHover: (info) => {
     if (mode === "live" && info.object && info.layer && info.layer.id === "live-dots") {
-      const v = info.object;
-      const spd = v.sog != null ? `${v.sog.toFixed(1)} kn` : "";
-      setTooltip(info.x, info.y, `<div class="nm">${v.name || "Unknown vessel"}</div>
-        <div class="meta">${LABELS[v.cat] || v.cat}${spd ? " · " + spd : ""}</div>`);
+      const v = info.object, L = [];
+      L.push(`<div class="nm">${v.name || "Unknown vessel"}</div>`);
+      L.push(`<div class="meta">${LABELS[v.cat] || v.cat}${v.nav != null && NAV[v.nav] ? " · " + NAV[v.nav] : ""}</div>`);
+      const mv = [];
+      if (v.sog != null) mv.push(`${v.sog.toFixed(1)} kn`);
+      if (v.cog != null && v.sog > 0.5) mv.push(`course ${Math.round(v.cog)}°`);
+      if (mv.length) L.push(`<div class="meta">${mv.join(" · ")}</div>`);
+      if (v.dest) L.push(`<div class="meta">→ ${v.dest}</div>`);
+      if (v.length) L.push(`<div class="meta">${v.length}×${v.width} m${v.draught ? " · " + v.draught + " m draught" : ""}</div>`);
+      L.push(`<div class="meta">seen ${ago(v.last)} · MMSI ${info.object.__mmsi || ""}</div>`);
+      setTooltip(info.x, info.y, L.join(""));
     } else setTooltip(0, 0, null);
   },
 });
