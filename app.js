@@ -200,8 +200,8 @@ function liveLayers() {
   // wakes: every vessel with a recent track, fading over the radar window
   const trails = all.filter((v) => v.trail.length > 1)
     .map((v) => ({ c: CATS().indexOf(v.cat), p: v.trail.map((q) => [q[0], q[1]]), t: v.trail.map((q) => q[2]) }));
-  // bright heads: vessels that pinged recently
-  const dots = all.filter((v) => v.lon != null && now - (v.last || 0) < 600);
+  // bright heads: vessels that pinged in the last ~15 min
+  const dots = all.filter((v) => v.lon != null && now - (v.last || 0) < 900);
   return [
     // soft glow underlay
     new deck.TripsLayer({ id: "radar-glow", data: trails, getPath: (d) => d.p, getTimestamps: (d) => d.t,
@@ -213,9 +213,14 @@ function liveLayers() {
       getColor: (d) => colorFor(CATS()[d.c]), opacity: 0.85, widthMinPixels: 1.8,
       capRounded: true, jointRounded: true, trailLength: RADAR_WINDOW, currentTime: now, fadeTrail: true,
       parameters: { depthTest: false } }),
+    // halo so each vessel is easy to spot on the busy chart
+    new deck.ScatterplotLayer({ id: "live-halo", data: dots, getPosition: (d) => [d.lon, d.lat],
+      getFillColor: (d) => { const c = colorFor(d.cat); return [c[0], c[1], c[2], 55]; },
+      stroked: false, getRadius: 250, radiusMinPixels: 12, radiusMaxPixels: 30,
+      parameters: { depthTest: false }, updateTriggers: { getFillColor: [...active].join() } }),
     new deck.ScatterplotLayer({ id: "live-dots", data: dots, getPosition: (d) => [d.lon, d.lat],
-      getFillColor: (d) => colorFor(d.cat), getLineColor: [40, 32, 20, 220], lineWidthMinPixels: 1, stroked: true,
-      getRadius: (d) => (d.cat === "cargo" || d.cat === "tanker" ? 120 : 75), radiusMinPixels: 3.5, radiusMaxPixels: 13,
+      getFillColor: (d) => colorFor(d.cat), getLineColor: [18, 28, 44, 235], lineWidthMinPixels: 1.4, stroked: true,
+      getRadius: (d) => (d.cat === "cargo" || d.cat === "tanker" ? 170 : 110), radiusMinPixels: 5.5, radiusMaxPixels: 17,
       pickable: true, parameters: { depthTest: false }, updateTriggers: { getFillColor: [...active].join() } }),
   ];
 }
@@ -343,7 +348,7 @@ function connectLive() {
     for (const [k, v] of live) {
       while (v.trail.length && v.trail[0][2] < cut) v.trail.shift();
       if (v.trail.length === 0 && now - (v.last || 0) > RADAR_WINDOW) { live.delete(k); continue; }
-      if (now - (v.last || 0) < 600) activeNow++;
+      if (now - (v.last || 0) < 900) activeNow++;
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
