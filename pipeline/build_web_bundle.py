@@ -27,7 +27,8 @@ from harbor import CATEGORIES, LON_MIN, LON_MAX, LAT_MIN, LAT_MAX
 DAYS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "days")
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "web")
 
-SAMPLE_MINUTES = 4       # min spacing between kept points for MOVING vessels
+SAMPLE_MINUTES = 7       # min spacing between kept points for MOVING vessels
+                         # (year plays fully compressed; the 'A day' view is finer)
 IDLE_MINUTES = 60        # spacing for near-stationary vessels (sog < IDLE_SOG)
 IDLE_SOG = 1.0           # knots; below this a vessel is anchored/moored
 GAP_MINUTES = 18         # break a trip into a new segment past this time gap

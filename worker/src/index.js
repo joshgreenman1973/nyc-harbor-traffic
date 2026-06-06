@@ -49,9 +49,12 @@ export default {
     }));
 
     // Relay upstream -> client, trimmed to the fields the frontend needs.
+    const decoder = new TextDecoder();
     upstream.addEventListener("message", (evt) => {
       try {
-        const msg = JSON.parse(evt.data);
+        // AISStream delivers JSON as binary frames; decode bytes to text first.
+        const raw = typeof evt.data === "string" ? evt.data : decoder.decode(evt.data);
+        const msg = JSON.parse(raw);
         const meta = msg.MetaData || {};
         const type = msg.MessageType;
         if (type === "PositionReport") {

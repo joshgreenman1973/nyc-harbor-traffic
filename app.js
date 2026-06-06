@@ -5,7 +5,7 @@
    Live  — true real-time positions via AISStream, relayed by a Cloudflare Worker. */
 
 // ---- Config -------------------------------------------------------------
-const RELAY_URL = "wss://nyc-harbor-ais-relay.joshgreenman.workers.dev";
+const RELAY_URL = "wss://nyc-harbor-ais-relay.josh-greenman.workers.dev";
 const DATA = "data/web/";
 
 // NOAA ENC Maritime Chart Service (paper-chart symbology) as a WMS raster base.
@@ -99,14 +99,19 @@ async function loadData() {
   manifest = await (await fetch(DATA + "manifest.json")).json();
   manifest.categories.forEach((c) => active.add(c));
   buildLegend();
+  currentTime = manifest.tMin; $("timeline").value = 0;
+  // Start animating right away; stream the months in progressively so the
+  // map comes alive immediately instead of waiting on the whole year.
+  hideStatus(); lastFrame = performance.now(); requestAnimationFrame(tick);
+  streamMonths();
+}
+
+async function streamMonths() {
   for (let i = 0; i < manifest.months.length; i++) {
     const m = manifest.months[i];
-    showStatus(`<span class="spin"></span>Plotting ${m} (${i + 1}/${manifest.months.length})…`);
     try { for (const tr of await (await fetch(`${DATA}trips-${m}.json`)).json()) allTrips.push(tr); }
     catch (e) { console.warn("month load failed", m, e); }
   }
-  currentTime = manifest.tMin; $("timeline").value = 0;
-  hideStatus(); lastFrame = performance.now(); requestAnimationFrame(tick);
 }
 
 async function ensureDay() {
