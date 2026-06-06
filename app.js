@@ -32,7 +32,7 @@ function categoryFor(t) {
 }
 
 // ---- State --------------------------------------------------------------
-let manifest = null, allTrips = [];
+let manifest = null, heat = null;
 let dayData = null, dayLoaded = false;
 const active = new Set();
 let mode = "year";
@@ -92,19 +92,13 @@ async function loadData() {
   manifest = await (await fetch(DATA + "manifest.json")).json();
   manifest.categories.forEach((c) => active.add(c));
   buildLegend();
+  try { heat = await (await fetch(DATA + "heat.json")).json(); }
+  catch (e) { console.warn("heat load failed", e); }
   hideStatus();
   setYearLabel();
+  renderStatic();
   lastFrame = performance.now();
   requestAnimationFrame(tick);
-  streamMonths();
-}
-async function streamMonths() {
-  for (const m of manifest.months) {
-    try {
-      for (const tr of await (await fetch(`${DATA}trips-${m}.json`)).json()) allTrips.push(tr);
-      if (mode === "year") renderStatic();
-    } catch (e) { console.warn("month load failed", m, e); }
-  }
 }
 async function ensureDay() {
   if (dayLoaded) return;
@@ -149,9 +143,25 @@ function densityPaths(id, data, opacity, width) {
     parameters: { depthTest: false }, updateTriggers: { getColor: [...active].join() },
   });
 }
+// Year = density heatmap of where traffic concentrates over the whole year.
+const HEAT_RANGE = [
+  [255, 247, 188], [254, 217, 118], [254, 153, 41],
+  [236, 112, 20], [204, 56, 30], [153, 18, 38],
+];
 function yearLayers() {
-  const data = allTrips.filter((d) => active.has(CATS()[d.c]));
-  return [densityPaths("year", data, 0.13, 1.1)];
+  if (!heat) return [];
+  const res = heat.res, lon0 = heat.lon0, lat0 = heat.lat0;
+  const idx = [...active].map((c) => heat.cats.indexOf(c)).filter((i) => i >= 0);
+  const pts = [];
+  for (const cell of heat.cells) {
+    let w = 0; for (const i of idx) w += cell[2 + i];
+    if (w > 0) pts.push({ pos: [lon0 + (cell[0] + 0.5) * res, lat0 + (cell[1] + 0.5) * res], w });
+  }
+  return [new deck.HeatmapLayer({
+    id: "year-heat", data: pts, getPosition: (d) => d.pos, getWeight: (d) => d.w,
+    aggregation: "SUM", radiusPixels: 22, intensity: 1.1, threshold: 0.05,
+    colorRange: HEAT_RANGE, parameters: { depthTest: false },
+  })];
 }
 function dayAnimLayers() {
   const data = dayData.trips.filter((d) => active.has(CATS()[d.c]));
