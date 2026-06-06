@@ -1,5 +1,4 @@
-/* Harbor Motion — NYC harbor boat traffic, drawn like colored pencil on the
-   working NOAA nautical chart.
+/* Harbor Motion — New York Harbor boat traffic on the working NOAA nautical chart.
    Year  — a static density map of a full year (2025): every transit, by type, filterable, counted.
    A day — the most recent complete day: animate the crossings, or see the whole day at once.
    Live  — true real-time positions via AISStream, relayed by a Cloudflare Worker. */
@@ -159,7 +158,7 @@ function yearLayers() {
   }
   return [new deck.HeatmapLayer({
     id: "year-heat", data: pts, getPosition: (d) => d.pos, getWeight: (d) => d.w,
-    aggregation: "SUM", radiusPixels: 22, intensity: 1.1, threshold: 0.05,
+    aggregation: "SUM", radiusPixels: 11, intensity: 1.6, threshold: 0.06,
     colorRange: HEAT_RANGE, parameters: { depthTest: false },
   })];
 }
