@@ -106,7 +106,7 @@ async function ensureDay() {
   try { dayData = await (await fetch(DATA + "day.json")).json(); dayLoaded = true; }
   catch (e) { console.warn("day load failed", e); }
   hideStatus();
-  if (mode === "day" && dayData) { dayTime = dayData.tMin; updateCounts(); updateDayClock(); renderStatic(); }
+  if (mode === "day" && dayData) { dayTime = dayData.tMin; setDayNote(); updateCounts(); updateDayClock(); renderStatic(); }
 }
 
 // ---- Legend with counts -------------------------------------------------
@@ -249,6 +249,15 @@ function setYearLabel() {
   const tot = manifest.counts && manifest.counts._total;
   $("season").textContent = tot ? `${fmt(tot.vessels)} vessels · ${fmt(tot.transits)} vessel-days` : "by vessel type";
 }
+function setDayNote() {
+  // Compute the real lag so the note can't claim a wrong duration.
+  const lagDays = Math.max(0, Math.round((Date.now() / 1000 - dayData.tMin) / 86400));
+  let lag;
+  if (lagDays <= 24) lag = `about ${lagDays} days`;
+  else if (lagDays < 75) lag = "a few weeks";
+  else lag = `about ${Math.round(lagDays / 30)} months`;
+  $("daynote").textContent = `· latest day in the public NOAA AIS archive (it runs ${lag} behind)`;
+}
 function updateDayClock() {
   const d0 = new Date(dayData.tMin * 1000);
   $("date").textContent = d0.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
@@ -301,8 +310,7 @@ function setMode(m) {
   overlay.setProps({ layers: [] });
   if (m === "year") { setYearLabel(); renderStatic(); }
   else if (m === "day") {
-    $("daynote").textContent = "· most recent complete day — the public AIS archive lags a few weeks";
-    ensureDay().then(() => { if (dayData) { dayTime = dayData.tMin; updateDayClock(); updateCounts(); renderStatic(); } });
+    ensureDay().then(() => { if (dayData) { dayTime = dayData.tMin; setDayNote(); updateDayClock(); updateCounts(); renderStatic(); } });
   }
   else if (m === "live") connectLive();
 }
