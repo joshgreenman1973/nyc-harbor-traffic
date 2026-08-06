@@ -5,6 +5,11 @@
 
 // ---- Config -------------------------------------------------------------
 const RELAY_URL = "wss://nyc-harbor-ais-relay.josh-greenman.workers.dev";
+// When the upstream AIS feed fails, the relay socket often stays open and simply
+// goes quiet -- no error, no close. New York Harbor is never empty, so a long
+// silence means a broken feed, not still water, and the readout has to say so
+// rather than reporting a confident "0 vessels now."
+const LIVE_STALE_MS = 90000;
 const DATA = "data/web/";
 const ENC_WMS = "https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/ENCOnline/MapServer/exts/MaritimeChartService/WMSServer";
 const ENC_TILES = ENC_WMS +
@@ -352,8 +357,10 @@ function connectLive() {
   if (!liveStart) liveStart = Date.now();
   loadVessels();
   try { ws = new WebSocket(RELAY_URL); } catch (e) { $("live-count").textContent = "live unavailable"; return; }
+  let liveMsgs = 0, lastMsgAt = 0;
   ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    liveMsgs++; lastMsgAt = Date.now();
     const t = Date.now() / 1000;
     let v = live.get(msg.mmsi);
     if (!v) { v = { cat: "other", name: "", trail: [], __mmsi: msg.mmsi }; live.set(msg.mmsi, v); }
@@ -388,7 +395,13 @@ function connectLive() {
       if (now - (v.last || 0) < 900) activeNow++;
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
-    $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
+    if (Date.now() - (lastMsgAt || liveStart) > LIVE_STALE_MS) {
+      $("live-count").textContent = liveMsgs
+        ? "live feed stalled — no vessel reports coming through"
+        : "live feed unavailable — no data from the AIS relay";
+    } else {
+      $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
+    }
     updateCounts();   // keep per-type counts live & consistent with Year/Day
   }, 2000);
 }
