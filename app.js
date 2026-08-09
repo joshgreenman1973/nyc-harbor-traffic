@@ -42,7 +42,7 @@ const active = new Set();
 let mode = "";   // set by setMode() once data is ready; 'A day' is the default
 let playing = true, dayStatic = false, dayTime = 0, lastFrame = 0;
 let dayLoopSec = 60;   // seconds to play one full day (set by the speed control)
-let ws = null, liveStart = 0, vessels = null;
+let ws = null, liveStart = 0, vessels = null, liveTimer = null;
 const live = new Map();
 const RADAR_WINDOW = 2 * 3600;   // seconds of wake to keep (fading radar echo)
 async function loadVessels() {   // MMSI -> [catIdx, name] from the 2025 archive
@@ -331,6 +331,9 @@ function setMode(m) {
   vis($("daytime"), m === "day");
   vis($("daynote"), m === "day");
   vis($("live-count"), m === "live");
+  // Leaving live hides the outage note immediately; the live poll re-shows it
+  // if the feed is still silent.
+  if (m !== "live") vis($("liveoutage-row"), false);
   vis($("daytoggle"), m === "day");
   vis($("speed"), m === "day" && !dayStatic);
   vis($("play"), m === "day" && !dayStatic);
@@ -356,7 +359,15 @@ function connectLive() {
   $("live-count").textContent = "connecting…";
   if (!liveStart) liveStart = Date.now();
   loadVessels();
+  // Every switch into Live calls this, so drop the previous ticker first --
+  // otherwise they stack up and each one keeps writing the readout from its own
+  // stale closure, and the last writer wins at random.
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   try { ws = new WebSocket(RELAY_URL); } catch (e) { $("live-count").textContent = "live unavailable"; return; }
+  // liveStart is when the session began (shown as "tracking since"); connStart
+  // is this connection's own clock, so reopening Live gets a fresh grace period
+  // instead of inheriting a long-stale baseline and flashing "unavailable".
+  const connStart = Date.now();
   let liveMsgs = 0, lastMsgAt = 0;
   ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
@@ -385,7 +396,7 @@ function connectLive() {
   };
   ws.onclose = () => { if (mode === "live") $("live-count").textContent = "disconnected"; };
   ws.onerror = () => { $("live-count").textContent = "live unavailable"; };
-  setInterval(() => {
+  liveTimer = setInterval(() => {
     if (mode !== "live") return;
     const now = Date.now() / 1000, cut = now - RADAR_WINDOW;
     let activeNow = 0;
@@ -395,13 +406,17 @@ function connectLive() {
       if (now - (v.last || 0) < 900) activeNow++;
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
-    if (Date.now() - (lastMsgAt || liveStart) > LIVE_STALE_MS) {
+    const stale = Date.now() - (lastMsgAt || connStart) > LIVE_STALE_MS;
+    if (stale) {
       $("live-count").textContent = liveMsgs
         ? "live feed stalled — no vessel reports coming through"
         : "live feed unavailable — no data from the AIS relay";
     } else {
       $("live-count").textContent = `${activeNow} vessels now · tracking since ${since}`;
     }
+    // The explainer clears itself the moment reports resume, so it can never
+    // outlive the outage it describes.
+    $("liveoutage-row").style.display = stale ? "" : "none";
     updateCounts();   // keep per-type counts live & consistent with Year/Day
   }, 2000);
 }
