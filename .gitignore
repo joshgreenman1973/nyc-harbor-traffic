@@ -9,3 +9,4 @@ data/download.log
 
 # OS
 .DS_Store
+data/recent/

@@ -48,6 +48,8 @@ export default {
       FilterMessageTypes: ["PositionReport", "ShipStaticData"],
     }));
 
+    const closeBoth = () => { try { upstream.close(); } catch (_) {} try { server.close(); } catch (_) {} };
+
     // Relay upstream -> client, trimmed to the fields the frontend needs.
     const decoder = new TextDecoder();
     upstream.addEventListener("message", (evt) => {
@@ -55,6 +57,14 @@ export default {
         // AISStream delivers JSON as binary frames; decode bytes to text first.
         const raw = typeof evt.data === "string" ? evt.data : decoder.decode(evt.data);
         const msg = JSON.parse(raw);
+        // AISStream answers a bad subscription (e.g. an invalid key) with
+        // {"error": "..."} instead of closing, which would otherwise look exactly
+        // like an outage. Pass it on so the page and the recorder can say why.
+        if (msg.error) {
+          server.send(JSON.stringify({ type: "error", message: String(msg.error).slice(0, 200) }));
+          closeBoth();
+          return;
+        }
         const meta = msg.MetaData || {};
         const type = msg.MessageType;
         if (type === "PositionReport") {
@@ -86,7 +96,6 @@ export default {
       } catch (_) { /* ignore malformed */ }
     });
 
-    const closeBoth = () => { try { upstream.close(); } catch (_) {} try { server.close(); } catch (_) {} };
     upstream.addEventListener("close", closeBoth);
     upstream.addEventListener("error", closeBoth);
     server.addEventListener("close", () => { try { upstream.close(); } catch (_) {} });

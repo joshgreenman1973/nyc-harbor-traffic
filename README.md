@@ -31,4 +31,17 @@ npx wrangler secret put AISSTREAM_KEY   # paste your free aisstream.io key
 npx wrangler deploy
 ```
 
+The relay passes AISStream's own error messages (such as a rejected key) to the page
+and the recorder, so a bad key no longer looks the same as an outage.
+
+## Recorder (rolling recent history)
+
+`recorder/loop.mjs` runs as one long GitHub Actions job (`.github/workflows/record.yml`).
+Every 15 minutes it listens to the relay for 30 seconds and appends the vessels it saw to
+`data/recent/YYYY-MM-DD.jsonl` on the **`data` branch** (not main: every push to main
+rebuilds Pages, and the site doesn't read these files). An empty snapshot is never
+recorded, since New York Harbor is never empty. Before GitHub's 6-hour job limit the
+loop dispatches its own successor; the hourly cron is only a backstop, because from
+Oct. 1, 2026 GitHub started only about five of the old 15-minute cron runs a day.
+
 *Not for navigation.* Chart: NOAA ENC®. Tracks: AIS.

@@ -368,9 +368,11 @@ function connectLive() {
   // is this connection's own clock, so reopening Live gets a fresh grace period
   // instead of inheriting a long-stale baseline and flashing "unavailable".
   const connStart = Date.now();
-  let liveMsgs = 0, lastMsgAt = 0;
+  let liveMsgs = 0, lastMsgAt = 0, relayError = "";
   ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    // The relay forwards AISStream's own error (e.g. a rejected key) as {type: "error"}.
+    if (msg.type === "error") { relayError = msg.message || "unknown error"; return; }
     liveMsgs++; lastMsgAt = Date.now();
     const t = Date.now() / 1000;
     let v = live.get(msg.mmsi);
@@ -406,8 +408,10 @@ function connectLive() {
       if (now - (v.last || 0) < 900) activeNow++;
     }
     const since = new Date(liveStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
-    const stale = Date.now() - (lastMsgAt || connStart) > LIVE_STALE_MS;
-    if (stale) {
+    const stale = relayError || Date.now() - (lastMsgAt || connStart) > LIVE_STALE_MS;
+    if (relayError) {
+      $("live-count").textContent = `live feed unavailable — the AIS source reports: ${relayError}`;
+    } else if (stale) {
       $("live-count").textContent = liveMsgs
         ? "live feed stalled — no vessel reports coming through"
         : "live feed unavailable — no data from the AIS relay";

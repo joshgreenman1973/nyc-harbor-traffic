@@ -1,27 +1,85 @@
 name: record-vessels
+
+# ONE long-lived recorder instead of a 15-minute cron.
+#
+# GitHub's scheduler drops and delays cron runs, and from Oct. 1, 2026 it
+# started only about five of this workflow's 96 runs a day. Now each run
+# executes recorder/loop.mjs, which stays up about 5.5 hours, snapshots the
+# harbor every 15 minutes onto the `data` branch, and then starts its own
+# successor through workflow_dispatch (dispatch events are not subject to cron
+# delays). The hourly cron below is only a backstop: when a recorder is already
+# live, the backstop run exits in seconds. Public repo, so Actions minutes are free.
+#
+# Snapshots go to the `data` branch, not main: every push to main triggers a
+# full Pages rebuild, and the site doesn't read data/recent.
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 min (GitHub may delay under load)
-  workflow_dispatch: {}
+    - cron: "41 * * * *"
+  workflow_dispatch:
+    inputs:
+      predecessor:
+        description: "Run id of the recorder run that started this one (set automatically)"
+        required: false
+        default: ""
+      once:
+        description: "Take one snapshot and exit without starting a successor (for testing)"
+        type: boolean
+        default: false
+
 permissions:
-  contents: write
-concurrency:
-  group: record
-  cancel-in-progress: false
+  contents: write   # archive commits to the data branch
+  actions: write    # dispatch the successor
+
 jobs:
   record:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "22" }   # Node 22 has a stable global WebSocket
-      - name: Snapshot vessels
-        run: node recorder/poll.mjs
-      - name: Commit log
+      # Single writer. Exit before doing anything if an older recorder run is
+      # live. The run that dispatched this one is exempt; wait for it to finish.
+      - name: Yield to a recorder that is already running
+        id: guard
+        if: ${{ github.event.inputs.once != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ME: ${{ github.run_id }}
+          PRED: ${{ github.event.inputs.predecessor }}
         run: |
-          git config user.name "harbor-recorder"
-          git config user.email "actions@users.noreply.github.com"
-          git add data/recent
-          git diff --staged --quiet || git commit -m "log vessels $(date -u +%FT%TZ)"
-          git pull --rebase --autostash || true
-          git push
+          others() {
+            gh api "repos/$REPO/actions/workflows/record.yml/runs?status=in_progress&per_page=50" \
+              --jq "[.workflow_runs[].id | select(. != $ME) | tostring] | join(\" \")"
+          }
+          if [ -n "$PRED" ]; then
+            for i in $(seq 1 20); do
+              case " $(others) " in *" $PRED "*) sleep 15 ;; *) break ;; esac
+            done
+          fi
+          for id in $(others); do
+            if [ "$id" != "${PRED:-0}" ] && [ "$id" -lt "$ME" ]; then
+              echo "Recorder run $id is already live; this run yields."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.skip != 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.skip != 'true'
+        with: { node-version: "22" }   # Node 22 has a stable global WebSocket
+
+      - name: Record
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ONCE: ${{ github.event.inputs.once }}
+        run: |
+          if [ "$ONCE" = "true" ]; then
+            node recorder/loop.mjs --once
+          else
+            node recorder/loop.mjs
+          fi
