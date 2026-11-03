@@ -64,14 +64,14 @@ tug_summer = season_sum("tug", [6, 7, 8]); tug_winter = season_sum("tug", [12, 1
 top_gateway = max((k for k in origins if k != "Harbor berths"), key=lambda k: origins[k])
 
 facts = [
-    f"Recreational boating is overwhelmingly seasonal: about {ratio}× as many sailing & "
+    f"Recreational boating is seasonal: about {ratio}× as many sailing & "
     f"pleasure craft appear in summer (Jun–Aug) as in winter (Dec–Feb)."
     if ratio else "",
     f"The harbor is busiest in {MONTHS[busiest_month-1]}, with {len(month_all[busiest_month]):,} distinct vessels.",
     f"Working boats run year-round: roughly {tug_summer:,} tug & barge vessels in summer vs "
-    f"{tug_winter:,} in winter — barely a seasonal dip.",
+    f"{tug_winter:,} in winter.",
     f"Of vessels that enter from outside the harbor, the most common gateway is {top_gateway}.",
-    f"The single busiest day of {busiest[0][:4]} was {busiest[0]}, with {busiest[1]:,} vessels on the water.",
+    f"The busiest day of {busiest[0][:4]} was {busiest[0]}, with {busiest[1]:,} vessels on the water.",
 ]
 facts = [f for f in facts if f]
 

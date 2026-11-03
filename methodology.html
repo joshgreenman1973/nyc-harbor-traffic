@@ -27,7 +27,7 @@
 <body>
 <a class="back" href="index.html">← Back to the map</a>
 <h1>Harbor Motion — methodology</h1>
-<p class="dim">How the boat-traffic map of New York Harbor is built. Nothing here is a black box.</p>
+<p class="dim">How the boat-traffic map of New York Harbor is built.</p>
 
 <h2>What you're looking at</h2>
 <p><strong>Year</strong> is a density heatmap of a full real year (2025): every position report across
@@ -81,7 +81,7 @@ trails and live dots):</p>
     (~230,000 rows/day) — the raw file is never stored.</li>
   <li>For the animation, each vessel's track is downsampled: <strong>one point per ~4 minutes</strong>
     while moving, and heavily decimated (~1 point/hour) when anchored or moored below 1 knot,
-    since the story is movement, not idling.</li>
+    since the map is about movement.</li>
   <li>A track is split into separate segments whenever there's a time gap longer than 18 minutes
     <em>or</em> a position jump larger than ~3&nbsp;km. This keeps the connecting lines hugging the
     water instead of drawing straight "teleport" chords across land from missing or bad AIS fixes.
